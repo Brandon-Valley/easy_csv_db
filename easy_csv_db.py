@@ -13,10 +13,12 @@ class EasyCsvDb:
 
         if db_file_path:
             # Connect to SQLite Database (On-disk)
-            self.connection = sqlite3.connect(db_file_path)
+            self.connection: sqlite3.Connection = sqlite3.connect(db_file_path)
         else:
             # Connect to SQLite Database (In-memory)
-            self.connection = sqlite3.connect(":memory:")
+            self.connection: sqlite3.Connection = sqlite3.connect(":memory:")
+
+        # assert isinstance(self.connection, sqlite3.Connection)
 
     def get_all_table_names(self) -> List[str]:
         """Returns a list of all table names in the database."""
@@ -118,6 +120,97 @@ class EasyCsvDb:
 
         with new_backup_connection:
             self.connection.backup(new_backup_connection)
+
+    # def export_table_schemas_as_jsons(
+    #     self, dest_dir_path: Path, table_names: Optional[List[str]] = None, indent: int = 4, verbose: bool = False
+    # ) -> None:
+    #     """
+    #     Exports the schema of the relevant tables as individual JSON files
+
+    #     Parameters:
+    #         dest_dir_path: The directory where the JSON files will be saved.
+    #         table_names: A list of table names to export. If None, all tables will be exported.
+    #         indent: The indentation level for the JSON files.
+    #     """
+    #     dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+    #     if verbose:
+    #         print(f"Exporting table schemas as JSONs to: {dest_dir_path}")
+
+    #     for table_name in table_names or self.get_all_table_names():
+    #         cursor = self.connection.execute(f"PRAGMA table_info({table_name})")
+    #         schema = cursor.fetchall()
+
+    #         dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+    #         schema_json_path = dest_dir_path / f"{table_name}_schema.json"
+
+    #         if verbose:
+    #             print(f"Exporting schema for table '{table_name}' to: {schema_json_path}")
+
+    #         with open(schema_json_path, "w") as f:
+    #             json.dump(schema, f, indent=indent)
+
+    def export_table_schemas_as_jsons(
+        self, dest_dir_path: Path, table_names: Optional[List[str]] = None, indent: int = 4, verbose: bool = False
+    ) -> None:
+        """
+        Exports the schema of the specified tables as individual JSON files.
+        If table_names is None, exports schema for all tables in the database.
+
+        Parameters:
+        - dest_dir_path (Path): The directory where JSON files will be saved.
+        - table_names (Optional[List[str]]): List of table names to export schema for. Exports all if None.
+        - indent (int): Indentation level for the JSON files.
+        - verbose (bool): If True, prints additional information during the process.
+        """
+
+        def _get_table_schema_info(table_name: str) -> Dict[str, Dict[str, Any]]:
+            """Retrieve detailed schema information for a specific table_name."""
+            cursor = self.connection.cursor()
+
+            # Columns
+            cursor.execute(f"PRAGMA table_info({table_name});")
+            columns = [
+                dict(zip(["cid", "name", "type", "notnull", "default_value", "pk"], col)) for col in cursor.fetchall()
+            ]
+
+            # Foreign Keys
+            cursor.execute(f"PRAGMA foreign_key_list({table_name});")
+            foreign_keys = [
+                dict(zip(["id", "seq", "table", "from", "to", "on_update", "on_delete", "match"], fk))
+                for fk in cursor.fetchall()
+            ]
+
+            # Indexes
+            cursor.execute(f"PRAGMA index_list({table_name});")
+            indexes = [dict(zip(["seq", "name", "unique", "origin", "partial"], idx)) for idx in cursor.fetchall()]
+
+            return {"columns": columns, "foreign_keys": foreign_keys, "indexes": indexes}
+
+        # Ensure the destination directory exists
+        dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+        # If no table names are specified, export schemas for all tables
+        if table_names is None:
+            table_names = self.get_all_table_names()
+
+        for table_name in table_names:
+            if verbose:
+                print(f"Exporting schema for table: {table_name}")
+
+            # Retrieve detailed schema information
+            schema_info = _get_table_schema_info(table_name)
+
+            # Define the output file path
+            output_file = dest_dir_path / f"{table_name}_schema.json"
+
+            if verbose:
+                print(f"Writing schema information to: {output_file}")
+
+            # Write the schema information to a JSON file
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(schema_info, f, indent=indent)
 
     def to_json(self) -> dict:
         json_serializable_csv_path_by_table_name = {

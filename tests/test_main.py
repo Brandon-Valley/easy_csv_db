@@ -1,3 +1,4 @@
+import json
 from pprint import pprint
 import pytest
 import pandas as pd
@@ -12,6 +13,7 @@ from pathlib import Path
 import tempfile
 import csv
 from typing import Generator
+import json
 
 SCRIPT_PARENT_DIR_PATH = Path(__file__).parent
 TEST_OUTPUT_DIR_PATH = SCRIPT_PARENT_DIR_PATH / "outputs"
@@ -80,3 +82,37 @@ def test_backup_to_db_file(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     backup_db = EasyCsvDb(backup_file_path)
     cursor = backup_db.connection.execute(f"SELECT * FROM {table_name}")
     assert cursor.fetchall() == [("1", "Alice"), ("2", "Bob")]
+
+
+def test_export_table_schemas_as_jsons(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_export_table"
+    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
+
+    dest_dir_path = TEST_OUTPUT_DIR_PATH / "schemas"
+    easy_csv_db.export_table_schemas_as_jsons(dest_dir_path, verbose=True)
+
+    # Check if the directory exists
+    assert dest_dir_path.exists()
+
+    # Check if the schema JSON file exists for the table
+    schema_json_path = dest_dir_path / f"{table_name}_schema.json"
+    assert schema_json_path.exists()
+
+    # Check if the schema JSON file has the correct content
+    with open(schema_json_path, "r") as f:
+        schema = json.load(f)
+        cursor = easy_csv_db.connection.execute(f"PRAGMA table_info({table_name})")
+        expected_schema = cursor.fetchall()
+        expected_schema_dict = {"columns": [], "indexes": [], "foreign_keys": []}
+        for column in expected_schema:
+            expected_schema_dict["columns"].append(
+                {
+                    "cid": column[0],
+                    "name": column[1],
+                    "type": column[2],
+                    "notnull": column[3],
+                    "default_value": column[4],
+                    "pk": column[5],
+                }
+            )
+        assert schema == expected_schema_dict
