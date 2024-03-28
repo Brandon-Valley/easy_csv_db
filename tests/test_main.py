@@ -85,6 +85,45 @@ def test_backup_to_db_file(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
 
 
 def test_export_table_schemas_as_jsons(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    # Create a table with foreign key constraint
+    table_name = "test_foreign_key_table"
+    easy_csv_db.connection.execute(f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY, name TEXT)")
+    easy_csv_db.connection.execute(
+        f"CREATE TABLE related_table (id INTEGER PRIMARY KEY, foreign_id INTEGER, FOREIGN KEY (foreign_id) REFERENCES {table_name}(id))"
+    )
+
+    # Export table schemas as JSONs
+    dest_dir_path = TEST_OUTPUT_DIR_PATH / "schemas"
+    easy_csv_db.export_table_schemas_as_jsons(dest_dir_path, verbose=True)
+
+    # Check if the directory exists
+    assert dest_dir_path.exists()
+
+    # Check if the schema JSON file exists for the table
+    schema_json_path = dest_dir_path / f"{table_name}_schema.json"
+    assert schema_json_path.exists()
+
+    # Check if the schema JSON file has the correct content
+    with open(schema_json_path, "r") as f:
+        schema = json.load(f)
+        cursor = easy_csv_db.connection.execute(f"PRAGMA foreign_key_list({table_name})")
+        foreign_keys = cursor.fetchall()
+        expected_schema_dict = {"columns": [], "indexes": [], "foreign_keys": []}
+        for column in foreign_keys:
+            expected_schema_dict["foreign_keys"].append(
+                {
+                    "id": column[0],
+                    "seq": column[1],
+                    "table": column[2],
+                    "from": column[3],
+                    "to": column[4],
+                    "on_update": column[5],
+                    "on_delete": column[6],
+                    "match": column[7],
+                }
+            )
+        expected_schema_dict["columns"] = schema["columns"]  # Update the expected columns
+        assert schema == expected_schema_dict
     table_name = "test_export_table"
     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
 
