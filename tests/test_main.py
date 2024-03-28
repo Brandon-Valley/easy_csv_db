@@ -1,3 +1,4 @@
+from pprint import pprint
 import pytest
 import pandas as pd
 from pathlib import Path
@@ -21,7 +22,7 @@ TEST_OUTPUT_DIR_PATH = SCRIPT_PARENT_DIR_PATH / "outputs"
 def easy_csv_db() -> Generator[EasyCsvDb, None, None]:
     db = EasyCsvDb()
     yield db
-    db.conn.close()
+    db.connection.close()
 
 
 # Fixture for creating a temporary CSV file
@@ -40,25 +41,6 @@ def temp_csv_file() -> Generator[Path, None, None]:
     Path(tmpfile.name).unlink()  # Clean up after the test
 
 
-def test_create_table_from_csv(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
-    table_name = "test_table"
-    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
-    result = easy_csv_db.execute(f"SELECT * FROM {table_name}")
-    assert len(result) == 2
-    assert result[0] == {"id": "1", "name": "Alice"}
-    assert result[1] == {"id": "2", "name": "Bob"}
-
-
-def test_execute(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
-    table_name = "test_query_table"
-    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
-    result = easy_csv_db.execute(f"INSERT INTO {table_name} (id, name) VALUES ('3', 'Charlie')")
-    assert not result
-    result = easy_csv_db.execute(f"SELECT * FROM {table_name}")
-    assert len(result) == 3
-    assert result[2] == {"id": "3", "name": "Charlie"}
-
-
 def test_display_tables(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     """Test to make sure no errors are thrown"""
     table_name = "test_query_table_1"
@@ -66,6 +48,22 @@ def test_display_tables(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     table_name = "test_query_table_2"
     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
     easy_csv_db.display_tables()
+
+
+def test_create_table_from_csv(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_table"
+    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
+    cursor = easy_csv_db.connection.execute(f"SELECT * FROM {table_name}")
+    assert cursor.fetchall() == [("1", "Alice"), ("2", "Bob")]
+
+
+def test_execute(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_query_table"
+    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
+    cursor = easy_csv_db.connection.execute(f"INSERT INTO {table_name} (id, name) VALUES ('3', 'Charlie')")
+    assert not cursor.fetchall()
+    cursor = easy_csv_db.connection.execute(f"SELECT * FROM {table_name}")
+    assert cursor.fetchall() == [("1", "Alice"), ("2", "Bob"), ("3", "Charlie")]
 
 
 def test_backup_to_db_file(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
@@ -80,7 +78,5 @@ def test_backup_to_db_file(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
 
     # Check if the backup file has the correct data
     backup_db = EasyCsvDb(backup_file_path)
-    result = backup_db.execute(f"SELECT * FROM {table_name}")
-    assert len(result) == 2
-    assert result[0] == {"id": "1", "name": "Alice"}
-    assert result[1] == {"id": "2", "name": "Bob"}
+    cursor = backup_db.connection.execute(f"SELECT * FROM {table_name}")
+    assert cursor.fetchall() == [("1", "Alice"), ("2", "Bob")]

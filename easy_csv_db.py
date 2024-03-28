@@ -7,71 +7,41 @@ from typing import Any, Dict, List, Optional
 
 
 class EasyCsvDb:
-    '''
-    ## Simple Usage Example:
-
-    ```python
-    db = EasyCsvDb()
-    db.create_table_from_csv(CSV_A_PATH, "a_table")
-    db.create_table_from_csv(CSV_B_PATH, "b_table")
-    db.display_tables()
-    row_dicts = db.execute(
-        """
-        SELECT * FROM b_table
-        JOIN equiv_table
-        ON b_table.common_field = a_table.common_field
-    """
-    )
-    row_dicts.to_csv(CSV_C_PATH, index=False)
-    ```
-    '''
-
     def __init__(self, db_file_path: Optional[Path] = None):
         """db_file_path defaults to None, which creates an in-memory database."""
         self.csv_path_by_table_name: Dict[str, Path] = {}
 
         if db_file_path:
             # Connect to SQLite Database (On-disk)
-            self.conn = sqlite3.connect(db_file_path)
+            self.connection = sqlite3.connect(db_file_path)
         else:
             # Connect to SQLite Database (In-memory)
-            self.conn = sqlite3.connect(":memory:")
-
-    def execute(self, statement: str) -> Optional[List[Dict[str, Any]]]:
-        """
-        Executes the given SQL statement and returns result as row_dicts if applicable.
-
-        Example output format:
-
-        ```json
-        [
-            {"column_1": value_1, "column_2": value_2},
-            {"column_1": value_3, "column_2": value_4},
-            ...
-        ]
-        ```
-        """
-        cursor = self.conn.execute(statement)
-
-        if cursor.description:
-            column_names = [d[0] for d in cursor.description]
-            row_dicts = [dict(zip(column_names, row)) for row in cursor.fetchall()]
-            return row_dicts
+            self.connection = sqlite3.connect(":memory:")
 
     def get_all_table_names(self) -> List[str]:
-        return [row["name"] for row in self.execute("SELECT name FROM sqlite_master WHERE type='table';")]
+        """Returns a list of all table names in the database."""
+        cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        return [row[0] for row in cursor.fetchall()]
 
     def display_tables(self, max_table_rows_to_display: int = 4) -> list:
-        def display_row_dicts_as_text_table(row_dicts: List[Dict[str, Any]]) -> None:
-            if not row_dicts:
-                print("No data to display.")
-                return
+        def _display_cursor_as_text_table(cursor: sqlite3.Cursor) -> None:
+            """
+            Example output:
+
+                ```
+                id | name
+                ----------
+                1  | Alice
+                2  | Bob
+                ```
+            """
+            # Get column names
+            column_names = [description[0] for description in cursor.description]
 
             # Calculate column widths
-            column_names = list(row_dicts[0].keys())
             column_widths = {column: len(column) for column in column_names}
-            for row_dict in row_dicts:
-                for column, value in row_dict.items():
+            for row in cursor.fetchall():
+                for column, value in zip(column_names, row):
                     column_widths[column] = max(column_widths[column], len(str(value)))
 
             # Print the column names with proper spacing
@@ -82,8 +52,9 @@ class EasyCsvDb:
             print("-" * len(headers))
 
             # Print the row data
-            for row_dict in row_dicts:
-                row = " | ".join(f"{str(value):{column_widths[column]}}" for column, value in row_dict.items())
+            cursor.execute(f"SELECT * FROM {table_name} LIMIT {max_table_rows_to_display};")
+            for row in cursor.fetchall():
+                row = " | ".join(f"{str(value):{column_widths[column]}}" for column, value in zip(column_names, row))
                 print(row)
 
         print("")
@@ -104,10 +75,10 @@ class EasyCsvDb:
             print("")
 
             # Get row_dicts to display
-            row_dicts = self.execute(f"SELECT * FROM {table_name} LIMIT {max_table_rows_to_display};")
+            cursor = self.connection.execute(f"SELECT * FROM {table_name} LIMIT {max_table_rows_to_display};")
 
             # Print the list of row_dicts as a nice text-based table
-            display_row_dicts_as_text_table(row_dicts)
+            _display_cursor_as_text_table(cursor)
 
             print("")
         print("#####################################################################################################")
@@ -119,21 +90,21 @@ class EasyCsvDb:
             table_name = csv_path.stem
 
         with open(csv_path, encoding="utf-8", newline="") as f:
-            with self.conn:
+            with self.connection:
                 dr = csv.DictReader(f, dialect="excel")
                 field_names = dr.fieldnames
 
                 sql = 'DROP TABLE IF EXISTS "{}"'.format(table_name)
-                self.conn.execute(sql)
+                self.connection.execute(sql)
 
                 formatted_field_names = ",".join('"{}"'.format(col) for col in field_names)
                 sql = f'CREATE TABLE "{table_name}" ( {formatted_field_names} )'
 
-                self.conn.execute(sql)
+                self.connection.execute(sql)
 
                 vals = ",".join("?" for _ in field_names)
                 sql = f'INSERT INTO "{table_name}" VALUES ( {vals} )'
-                self.conn.executemany(sql, (list(map(row.get, field_names)) for row in dr))
+                self.connection.executemany(sql, (list(map(row.get, field_names)) for row in dr))
 
         self.csv_path_by_table_name[table_name] = csv_path
 
@@ -146,7 +117,7 @@ class EasyCsvDb:
         )
 
         with new_backup_connection:
-            self.conn.backup(new_backup_connection)
+            self.connection.backup(new_backup_connection)
 
     def to_json(self) -> dict:
         json_serializable_csv_path_by_table_name = {
@@ -159,5 +130,5 @@ class EasyCsvDb:
 
     def __exit__(self) -> str:
         # Save Changes and Close Connection
-        self.conn.commit()
-        self.conn.close()
+        self.connection.commit()
+        self.connection.close()
