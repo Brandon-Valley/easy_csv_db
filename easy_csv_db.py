@@ -2,8 +2,7 @@ import csv
 from pathlib import Path
 import sqlite3
 import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 
 class EasyCsvDb:
