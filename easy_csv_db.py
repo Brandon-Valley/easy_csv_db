@@ -77,7 +77,7 @@ class EasyCsvDb:
         for entity_name in self.get_all_entity_names():
 
             # Get csv_path_str
-            csv_path_str = "This table was not created from a CSV file."
+            csv_path_str = "This entity was not created from a CSV file."
             if entity_name in self.csv_path_by_entity_name:
                 csv_path_str = self.csv_path_by_entity_name[entity_name].as_posix()
 
