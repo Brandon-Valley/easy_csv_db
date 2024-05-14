@@ -99,10 +99,7 @@ def test_create_view(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     assert updated_csv_path.exists()
     assert updated_csv_path == temp_csv_file
     assert updated_csv_path.read_text() == "id,name\n2,Bob\n"
-    # assert updated_csv_path.read_text().strip().split('\n')[1] == "2,Bob"
-    # assert updated_csv_path.exists()
-    # assert updated_csv_path == temp_csv_file
-    # assert updated_csv_path.read_text() == "2,Bob\n"
+
 
 
 
@@ -130,26 +127,27 @@ def test_get_all_table_and_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Pat
     assert easy_csv_db.get_all_table_and_view_names() == [table_name, view_name]
 
 
-# def test_update_csvs(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
-#     table_name = "test_table"
-#     csv_path = temp_csv_file
+def test_update_csvs(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_table"
+    csv_path = temp_csv_file
 
-#     # Create the test_table
-#     easy_csv_db.create_table_from_csv(csv_path, table_name)
+    # Create the test_table
+    easy_csv_db.create_table_from_csv(csv_path, table_name)
 
-#     # Insert some data into the test_table
-#     with easy_csv_db.connection:
-#         cursor = easy_csv_db.connection.cursor()
-#         cursor.execute(f"INSERT INTO {table_name} VALUES ('1', 'Alice')")
-#         cursor.execute(f"INSERT INTO {table_name} VALUES ('2', 'Bob')")
+    # Update some data into the test_table
+    with easy_csv_db.connection:
+        cursor = easy_csv_db.connection.cursor()
+        cursor.execute(f"INSERT INTO {table_name} VALUES ('3', 'Joe')")
+        cursor.execute(f"DELETE FROM {table_name} WHERE id = '1'")
+        cursor.execute(f"UPDATE {table_name} SET name = 'Alice' WHERE id = '2'")
 
-#     # Call the update_csvs method
-#     easy_csv_db.update_csvs()
+    # Call the update_csvs method
+    easy_csv_db.update_csvs()
 
-#     # Read the updated CSV file
-#     with open(csv_path, "r", encoding="utf-8") as f:
-#         reader = csv.reader(f)
-#         data = list(reader)
+    # Read the updated CSV file
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        data = list(reader)
 
-#     # Check if the CSV file has the correct data
-#     assert data == [['1', 'Alice'], ['2', 'Bob']]
+    # Check if the CSV file has the correct data
+    assert data == [["id", "name"], ["2", "Alice"], ["3", "Joe"]]
