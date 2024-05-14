@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 class EasyCsvDb:
     def __init__(self, db_file_path: Optional[Path] = None):
         """db_file_path defaults to None, which creates an in-memory database."""
-        self.csv_path_by_entity_name: Dict[str, Path] = {} # TMP why need this?
+        self.csv_path_by_entity_name: Dict[str, Path] = {}  # TMP why need this?
 
         if db_file_path:
             # Connect to SQLite Database (On-disk)
@@ -22,12 +22,12 @@ class EasyCsvDb:
         """Returns a list of all table names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='table';")
         return [row[0] for row in cursor.fetchall()]
-    
+
     def get_all_view_names(self) -> List[str]:
         """Returns a list of all view names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
         return [row[0] for row in cursor.fetchall()]
-    
+
     def get_all_entity_names(self) -> List[str]:
         """Returns a list of all table and view names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master;")
@@ -119,17 +119,19 @@ class EasyCsvDb:
 
         self.csv_path_by_entity_name[table_name] = csv_path
 
-
-    def create_view(self, create_view_statement: str, csv_path: Path, view_name: Optional[str] = None, write_csv: bool = True) -> None:
+    def create_view(
+        self, create_view_statement: str, csv_path: Path, view_name: Optional[str] = None, write_csv: bool = True
+    ) -> None:
         """
         Creates a view from the provided create_view_statement.
           - The view_name defaults to the csv_path's stem if not provided.
           - If write_csv, the csv at csv_path will be updated to reflect the view after it is created.
         """
+
         def _view_exists(view_name: str) -> bool:
             cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
             return view_name in [row[0] for row in cursor.fetchall()]
-        
+
         if not view_name:
             view_name = csv_path.stem
 
@@ -147,7 +149,6 @@ class EasyCsvDb:
         if write_csv:
             self.update_csv(view_name)
 
-
     def update_csv(self, entity_name: str) -> None:
         """Updates the csv at the provided csv_path with the data from the table or view."""
         csv_path = self.csv_path_by_entity_name[entity_name]
@@ -158,7 +159,6 @@ class EasyCsvDb:
             writer.writerow([description[0] for description in cursor.description])
             writer.writerows(cursor.fetchall())
 
-
     def update_csvs(self, entity_names: Optional[List[str]] = None) -> None:
         """If not entity_names, updates all csvs that are associated with a table or view."""
         if not entity_names:
@@ -167,7 +167,6 @@ class EasyCsvDb:
         for entity_name in entity_names:
             if entity_name in self.csv_path_by_entity_name:
                 self.update_csv(entity_name)
-
 
     def backup_to_db_file(self, backup_db_file_path: Path) -> None:
         """Writes the database to a file."""

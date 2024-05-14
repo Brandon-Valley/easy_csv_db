@@ -88,19 +88,17 @@ def test_create_view(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
 
     # Check if the view name matches the provided view_name
     assert view_name in easy_csv_db.csv_path_by_entity_name
-    
+
     # Check if the view was created
     cursor = easy_csv_db.connection.execute(f"SELECT * FROM {view_name}")
     assert cursor.fetchall() == [("2", "Bob")]
-    
+
     # Check if the CSV was updated
     updated_csv_path = easy_csv_db.csv_path_by_entity_name[view_name]
-    assert updated_csv_path.read_text().strip().split('\n')[1] == "2,Bob"
+    assert updated_csv_path.read_text().strip().split("\n")[1] == "2,Bob"
     assert updated_csv_path.exists()
     assert updated_csv_path == temp_csv_file
     assert updated_csv_path.read_text() == "id,name\n2,Bob\n"
-
-
 
 
 def test_get_all_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
