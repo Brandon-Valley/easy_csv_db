@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 class EasyCsvDb:
     def __init__(self, db_file_path: Optional[Path] = None):
         """db_file_path defaults to None, which creates an in-memory database."""
-        self.csv_path_by_table_name: Dict[str, Path] = {}
+        self.csv_path_by_table_name: Dict[str, Path] = {} # TMP why need this?
 
         if db_file_path:
             # Connect to SQLite Database (On-disk)
@@ -21,6 +21,11 @@ class EasyCsvDb:
     def get_all_table_names(self) -> List[str]:
         """Returns a list of all table names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        return [row[0] for row in cursor.fetchall()]
+    
+    def get_all_view_names(self) -> List[str]:
+        """Returns a list of all view names in the database."""
+        cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
         return [row[0] for row in cursor.fetchall()]
 
     def display_tables(self, max_table_rows_to_display: int = 4) -> list:
@@ -107,6 +112,13 @@ class EasyCsvDb:
                 self.connection.executemany(sql, (list(map(row.get, field_names)) for row in dr))
 
         self.csv_path_by_table_name[table_name] = csv_path
+
+
+    def create_view_from_query(self, query: str, view_name: str) -> None:
+        """Creates a view from a query."""
+        with self.connection:
+            self.connection.execute(f"CREATE VIEW {view_name} AS {query}")
+
 
     def backup_to_db_file(self, backup_db_file_path: Path) -> None:
         """Writes the database to a file."""
