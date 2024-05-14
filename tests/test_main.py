@@ -102,3 +102,12 @@ def test_get_all_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None
     view_name = "test_view"
     easy_csv_db.create_view_from_query(query, view_name)
     assert easy_csv_db.get_all_view_names() == [view_name]
+
+
+def test_get_all_table_and_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_table"
+    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)  # Create the test_table
+    query = "SELECT * FROM test_table WHERE id > 1"
+    view_name = "test_view"
+    easy_csv_db.create_view_from_query(query, view_name)
+    assert easy_csv_db.get_all_table_and_view_names() == [table_name, view_name]

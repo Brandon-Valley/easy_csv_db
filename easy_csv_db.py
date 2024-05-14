@@ -27,6 +27,11 @@ class EasyCsvDb:
         """Returns a list of all view names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
         return [row[0] for row in cursor.fetchall()]
+    
+    def get_all_table_and_view_names(self) -> List[str]:
+        """Returns a list of all table and view names in the database."""
+        cursor = self.connection.execute("SELECT name FROM sqlite_master;")
+        return [row[0] for row in cursor.fetchall()]
 
     def display_tables(self, max_table_rows_to_display: int = 4) -> list:
         def _display_cursor_as_text_table(cursor: sqlite3.Cursor) -> None:
