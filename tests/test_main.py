@@ -37,13 +37,13 @@ def temp_csv_file() -> Generator[Path, None, None]:
     Path(tmpfile.name).unlink()  # Clean up after the test
 
 
-def test_display_tables(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+def test_display(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     """Test to make sure no errors are thrown"""
     table_name = "test_query_table_1"
     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
     table_name = "test_query_table_2"
     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)
-    easy_csv_db.display_tables()
+    easy_csv_db.display()
 
 
 def test_create_table_from_csv(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
@@ -87,14 +87,14 @@ def test_create_view(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     easy_csv_db.create_view(create_view_statement, temp_csv_file, view_name)
 
     # Check if the view name matches the provided view_name
-    assert view_name in easy_csv_db.csv_path_by_table_name
+    assert view_name in easy_csv_db.csv_path_by_entity_name
     
     # Check if the view was created
     cursor = easy_csv_db.connection.execute(f"SELECT * FROM {view_name}")
     assert cursor.fetchall() == [("2", "Bob")]
     
     # Check if the CSV was updated
-    updated_csv_path = easy_csv_db.csv_path_by_table_name[view_name]
+    updated_csv_path = easy_csv_db.csv_path_by_entity_name[view_name]
     assert updated_csv_path.read_text().strip().split('\n')[1] == "2,Bob"
     assert updated_csv_path.exists()
     assert updated_csv_path == temp_csv_file
@@ -115,7 +115,7 @@ def test_get_all_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None
     assert easy_csv_db.get_all_view_names() == [view_name]
 
 
-def test_get_all_table_and_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+def test_get_all_entity_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     table_name = "test_table"
     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)  # Create the test_table
 
@@ -124,7 +124,7 @@ def test_get_all_table_and_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Pat
     create_view_statement = f"CREATE VIEW {view_name} AS SELECT * FROM test_table WHERE id > '1'"
     easy_csv_db.create_view(create_view_statement, temp_csv_file, view_name)
 
-    assert easy_csv_db.get_all_table_and_view_names() == [table_name, view_name]
+    assert easy_csv_db.get_all_entity_names() == [table_name, view_name]
 
 
 def test_update_csvs(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:

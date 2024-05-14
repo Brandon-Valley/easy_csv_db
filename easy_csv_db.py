@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 class EasyCsvDb:
     def __init__(self, db_file_path: Optional[Path] = None):
         """db_file_path defaults to None, which creates an in-memory database."""
-        self.csv_path_by_table_name: Dict[str, Path] = {} # TMP why need this?
+        self.csv_path_by_entity_name: Dict[str, Path] = {} # TMP why need this?
 
         if db_file_path:
             # Connect to SQLite Database (On-disk)
@@ -28,13 +28,13 @@ class EasyCsvDb:
         cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
         return [row[0] for row in cursor.fetchall()]
     
-    def get_all_table_and_view_names(self) -> List[str]:
+    def get_all_entity_names(self) -> List[str]:
         """Returns a list of all table and view names in the database."""
         cursor = self.connection.execute("SELECT name FROM sqlite_master;")
         return [row[0] for row in cursor.fetchall()]
 
-    # FIXME rename
-    def display_tables(self, max_table_rows_to_display: int = 4) -> list:
+    # FIXME rename table vars
+    def display(self, max_rows_to_display: int = 4) -> list:
         def _display_cursor_as_text_table(cursor: sqlite3.Cursor) -> None:
             """
             Example output:
@@ -63,7 +63,7 @@ class EasyCsvDb:
             print("-" * len(headers))
 
             # Print the row data
-            cursor.execute(f"SELECT * FROM {table_name} LIMIT {max_table_rows_to_display};")
+            cursor.execute(f"SELECT * FROM {entity_name} LIMIT {max_rows_to_display};")
             for row in cursor.fetchall():
                 row = " | ".join(f"{str(value):{column_widths[column]}}" for column, value in zip(column_names, row))
                 print(row)
@@ -71,22 +71,22 @@ class EasyCsvDb:
         print("")
         print("#####################################################################################################")
         print("#####################################################################################################")
-        print(f"EasyCsvDb Table Display ({max_table_rows_to_display=}):")
+        print(f"EasyCsvDb Display ({max_rows_to_display=}):")
         print("")
 
-        for table_name in self.get_all_table_and_view_names():
+        for entity_name in self.get_all_entity_names():
 
             # Get csv_path_str
             csv_path_str = "This table was not created from a CSV file."
-            if table_name in self.csv_path_by_table_name:
-                csv_path_str = self.csv_path_by_table_name[table_name].as_posix()
+            if entity_name in self.csv_path_by_entity_name:
+                csv_path_str = self.csv_path_by_entity_name[entity_name].as_posix()
 
-            print(f"Name: {table_name}")
+            print(f"Name: {entity_name}")
             print(f"  - From: {csv_path_str}")
             print("")
 
             # Get row_dicts to display
-            cursor = self.connection.execute(f"SELECT * FROM {table_name} LIMIT {max_table_rows_to_display};")
+            cursor = self.connection.execute(f"SELECT * FROM {entity_name} LIMIT {max_rows_to_display};")
 
             # Print the list of row_dicts as a nice text-based table
             _display_cursor_as_text_table(cursor)
@@ -117,7 +117,7 @@ class EasyCsvDb:
                 sql = f'INSERT INTO "{table_name}" VALUES ( {vals} )'
                 self.connection.executemany(sql, (list(map(row.get, field_names)) for row in dr))
 
-        self.csv_path_by_table_name[table_name] = csv_path
+        self.csv_path_by_entity_name[table_name] = csv_path
 
 
     def create_view(self, create_view_statement: str, csv_path: Path, view_name: Optional[str] = None, write_csv: bool = True) -> None:
@@ -142,31 +142,31 @@ class EasyCsvDb:
             f"actual view name defined in {create_view_statement=}."
         )
 
-        self.csv_path_by_table_name[view_name] = csv_path
+        self.csv_path_by_entity_name[view_name] = csv_path
 
         if write_csv:
             self.update_csv(view_name)
 
 
-    def update_csv(self, table_or_view_name: str) -> None:
+    def update_csv(self, entity_name: str) -> None:
         """Updates the csv at the provided csv_path with the data from the table or view."""
-        csv_path = self.csv_path_by_table_name[table_or_view_name]# FIX add custom exception instead of keyerror?
+        csv_path = self.csv_path_by_entity_name[entity_name]
 
         with open(csv_path, "w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
-            cursor = self.connection.execute(f"SELECT * FROM {table_or_view_name}")
+            cursor = self.connection.execute(f"SELECT * FROM {entity_name}")
             writer.writerow([description[0] for description in cursor.description])
             writer.writerows(cursor.fetchall())
 
 
-    def update_csvs(self, table_and_view_names: Optional[List[str]] = None) -> None:
-        """If not table_and_view_names, updates all csvs that are associated with a table or view."""
-        if not table_and_view_names:
-            table_and_view_names = self.get_all_table_and_view_names()
+    def update_csvs(self, entity_names: Optional[List[str]] = None) -> None:
+        """If not entity_names, updates all csvs that are associated with a table or view."""
+        if not entity_names:
+            entity_names = self.get_all_entity_names()
 
-        for table_or_view_name in table_and_view_names:
-            if table_or_view_name in self.csv_path_by_table_name:
-                self.update_csv(table_or_view_name)
+        for entity_name in entity_names:
+            if entity_name in self.csv_path_by_entity_name:
+                self.update_csv(entity_name)
 
 
     def backup_to_db_file(self, backup_db_file_path: Path) -> None:
@@ -181,10 +181,10 @@ class EasyCsvDb:
             self.connection.backup(new_backup_connection)
 
     def to_json(self) -> dict:
-        json_serializable_csv_path_by_table_name = {
-            table_name: csv_path.as_posix() for table_name, csv_path in self.csv_path_by_table_name.items()
+        json_serializable_csv_path_by_entity_name = {
+            entity_name: csv_path.as_posix() for entity_name, csv_path in self.csv_path_by_entity_name.items()
         }
-        return json_serializable_csv_path_by_table_name
+        return json_serializable_csv_path_by_entity_name
 
     def __repr__(self) -> str:
         return json.dumps(self.to_json())
