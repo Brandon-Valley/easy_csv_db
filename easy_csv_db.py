@@ -33,6 +33,7 @@ class EasyCsvDb:
         cursor = self.connection.execute("SELECT name FROM sqlite_master;")
         return [row[0] for row in cursor.fetchall()]
 
+    # FIXME rename
     def display_tables(self, max_table_rows_to_display: int = 4) -> list:
         def _display_cursor_as_text_table(cursor: sqlite3.Cursor) -> None:
             """
@@ -73,7 +74,7 @@ class EasyCsvDb:
         print(f"EasyCsvDb Table Display ({max_table_rows_to_display=}):")
         print("")
 
-        for table_name in self.get_all_table_names():
+        for table_name in self.get_all_table_and_view_names():
 
             # Get csv_path_str
             csv_path_str = "This table was not created from a CSV file."

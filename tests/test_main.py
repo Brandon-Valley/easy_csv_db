@@ -78,21 +78,21 @@ def test_backup_to_db_file(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
     assert cursor.fetchall() == [("1", "Alice"), ("2", "Bob")]
 
 
-# def test_create_view_from_query(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
-#     table_name = "test_table"
-#     easy_csv_db.create_table_from_csv(temp_csv_file, table_name)  # Create the test_table
-#     easy_csv_db.display_tables()
-#     query = "SELECT * FROM test_table WHERE id > 1"
-#     # exit("here")
-#     view_name = "test_view"
-#     easy_csv_db.create_view_from_query(query, view_name)
-#     easy_csv_db.display_tables()
+def test_create_view_from_query(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
+    table_name = "test_table"
+    easy_csv_db.create_table_from_csv(temp_csv_file, table_name)  # Create the test_table
+    # easy_csv_db.display_tables()
+    query = "SELECT * FROM test_table WHERE id > '1'"
+    # exit("here")
+    view_name = "test_view"
+    easy_csv_db.create_view_from_query(query, view_name)
+    easy_csv_db.display_tables()
 
-#     exit("here")
+    # exit("here")
 
-#     cursor = easy_csv_db.connection.execute(f"SELECT * FROM {view_name}")
+    cursor = easy_csv_db.connection.execute(f"SELECT * FROM {view_name}")
     
-#     assert cursor.fetchall() == [("2", "Bob")]
+    assert cursor.fetchall() == [("2", "Bob")]
 
 
 def test_get_all_view_names(easy_csv_db: EasyCsvDb, temp_csv_file: Path) -> None:
