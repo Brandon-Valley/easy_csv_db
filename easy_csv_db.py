@@ -81,7 +81,7 @@ class EasyCsvDb:
             if table_name in self.csv_path_by_table_name:
                 csv_path_str = self.csv_path_by_table_name[table_name].as_posix()
 
-            print(f"Table: {table_name}")
+            print(f"Name: {table_name}")
             print(f"  - From: {csv_path_str}")
             print("")
 
@@ -120,10 +120,53 @@ class EasyCsvDb:
         self.csv_path_by_table_name[table_name] = csv_path
 
 
-    def create_view_from_query(self, query: str, view_name: str) -> None:
-        """Creates a view from a query."""
+    def create_view(self, create_view_statement: str, csv_path: Path, view_name: Optional[str] = None, write_csv: bool = True) -> None:
+        """
+        Creates a view from the provided create_view_statement.
+          - The view_name defaults to the csv_path's stem if not provided.
+          - If write_csv, the csv at csv_path will be updated to reflect the view after it is created.
+        """
+        def _view_exists(view_name: str) -> bool:
+            cursor = self.connection.execute("SELECT name FROM sqlite_master WHERE type='view';")
+            return view_name in [row[0] for row in cursor.fetchall()]
+        
+        if not view_name:
+            view_name = csv_path.stem
+
+        # Create the view
         with self.connection:
-            self.connection.execute(f"CREATE VIEW {view_name} AS {query}")
+            self.connection.execute(create_view_statement)
+
+        assert _view_exists(view_name), (
+            f"View '{view_name}' was not created, this most likely means the provided {view_name=} does not match the "
+            f"actual view name defined in {create_view_statement=}."
+        )
+
+        self.csv_path_by_table_name[view_name] = csv_path
+
+        if write_csv:
+            self.update_csv(view_name)
+
+
+    def update_csv(self, table_or_view_name: str) -> None:
+        """Updates the csv at the provided csv_path with the data from the table or view."""
+        csv_path = self.csv_path_by_table_name[table_or_view_name]# FIX add custom exception instead of keyerror?
+
+        with open(csv_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            cursor = self.connection.execute(f"SELECT * FROM {table_or_view_name}")
+            writer.writerow([description[0] for description in cursor.description])
+            writer.writerows(cursor.fetchall())
+
+
+    def update_csvs(self, table_and_view_names: Optional[List[str]] = None) -> None:
+        """If not table_and_view_names, updates all csvs that are associated with a table or view."""
+        if not table_and_view_names:
+            table_and_view_names = self.get_all_table_and_view_names()
+
+        for table_or_view_name in table_and_view_names:
+            if table_or_view_name in self.csv_path_by_table_name:
+                self.update_csv(table_or_view_name)
 
 
     def backup_to_db_file(self, backup_db_file_path: Path) -> None:
